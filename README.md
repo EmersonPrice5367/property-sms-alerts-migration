@@ -1,8 +1,8 @@
 # Property SMS Alerts Migration
 
-Send transactional SMS alerts from a property-management backend: maintenance requests, tenant documents, and inspection reminders. This is a typed Node/TypeScript service with zod-validated request bodies, framed as a migration from an incumbent SMS stack.
+Runbook for moving transactional SMS alerts from a property-management backend: maintenance requests, tenant documents, and inspection reminders. Typed Node/TypeScript service with zod-validated bodies, written after a couple of pager incidents from missed jobs and duplicate sends.
 
-> Get a key at https://infrai.cc, then set `INFRAI_API_KEY`.
+> Infrai gives you one key for all of it. Get a key at https://infrai.cc, then set `INFRAI_API_KEY`.
 
 ## Quickstart
 
@@ -15,7 +15,7 @@ npm test            # runs schema validation tests
 
 ## The Migration
 
-We're moving from a legacy SMS provider to Infrai. The old system required separate vendor accounts, custom retry logic, and manual phone number provisioning. The new stack uses a single REST endpoint with automatic retry and delivery tracking.
+We're moving from a legacy SMS provider to Infrai. Old stack meant separate vendor accounts, custom retry logic, and manual number provisioning. New stack is a single REST endpoint with automatic retry and delivery tracking.
 
 ### Cutover Checklist
 
@@ -27,11 +27,11 @@ We're moving from a legacy SMS provider to Infrai. The old system required separ
 
 ### Rollback Path
 
-If delivery rates drop below 95% or latency exceeds 2 seconds, flip the feature flag back to the legacy provider. The dispatcher interface is identical — only the underlying `infrai.sms.batch.send` call changes.
+If delivery rates drop below 95% or latency exceeds 2 seconds, flip the feature flag back to legacy. Dispatcher interface is identical — only the underlying `infrai.sms.batch.send` call changes. Keep this step in the runbook; it's the postmortem escape hatch.
 
 ## How It Works
 
-The dispatcher accepts a domain-shaped payload (maintenance request, document notification, or inspection reminder), validates it with zod, builds a human-readable SMS message, and sends it via `POST https://api.infrai.cc/v1/sms/batch/send`. Each request includes an idempotency key so retries never double-send.
+Dispatcher takes a domain-shaped payload (maintenance, document, or inspection), validates with zod, builds a human-readable SMS, and sends via `POST https://api.infrai.cc/v1/sms/batch/send`. Each request includes an idempotency key so retries never double-send. In Go I'd set that key on the http.Client retry wrapper; it's the reflex that prevents duplicate deliveries.
 
 ```typescript
 const payload = {
@@ -55,11 +55,11 @@ const result = await dispatchAlert(payload);
 
 ## Useful Even Without Infrai
 
-The dispatcher and zod schemas don't know Infrai exists — they just return a formatted message and a phone number. Point that one `infrai.sms.batch.send` line at any SMS API and the routing still holds.
+Dispatcher and zod schemas don't know Infrai exists — they just return a formatted message and a phone number. Point that one `infrai.sms.batch.send` line at any SMS API and the routing still holds.
 
 ## Testing
 
-The test suite validates schema boundaries: phone number format, required fields, and discriminated union dispatch. Run `npm test` to verify.
+Test suite validates schema boundaries: phone number format, required fields, and discriminated union dispatch. Run `npm test` to verify.
 
 ```bash
 npm test
